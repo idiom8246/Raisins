@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { BottomNav } from './components/BottomNav';
 import { RecordView } from './views/Record';
 import { InventoryView } from './views/Inventory';
@@ -6,8 +6,14 @@ import { SettingsView } from './views/Settings';
 import { PriceView } from './views/Price';
 import { DashboardView } from './views/Dashboard';
 
+import { dbService } from './services/db';
+
 function App() {
   const [activeTab, setActiveTab] = useState('dashboard');
+
+  useEffect(() => {
+    dbService.requestPersistence();
+  }, []);
 
   const renderView = () => {
     switch (activeTab) {

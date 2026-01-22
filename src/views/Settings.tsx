@@ -8,6 +8,7 @@ export const SettingsView: React.FC = () => {
   const [newTripName, setNewTripName] = useState('');
   const [homeCurrency, setHomeCurrency] = useState('HKD');
   const [geminiKey, setGeminiKey] = useState('');
+  const [geminiModel, setGeminiModel] = useState('gemini-3-flash-preview');
 
   useEffect(() => {
     loadSettings();
@@ -17,9 +18,11 @@ export const SettingsView: React.FC = () => {
     const allTrips = await dbService.getAllTrips();
     const currency = await dbService.getSetting('homeCurrency', 'HKD');
     const key = await dbService.getSetting('geminiApiKey', '');
+    const model = await dbService.getSetting('geminiModel', 'gemini-3-flash-preview');
     setTrips(allTrips);
     setHomeCurrency(currency);
     setGeminiKey(key);
+    setGeminiModel(model);
   };
 
   const handleAddTrip = async () => {
@@ -45,6 +48,7 @@ export const SettingsView: React.FC = () => {
   const saveGeneralSettings = async () => {
     await dbService.setSetting('homeCurrency', homeCurrency);
     await dbService.setSetting('geminiApiKey', geminiKey);
+    await dbService.setSetting('geminiModel', geminiModel);
     alert('設定已儲存');
   };
 
@@ -100,6 +104,19 @@ export const SettingsView: React.FC = () => {
               value={homeCurrency} 
               onChange={e => setHomeCurrency(e.target.value.toUpperCase())}
             />
+          </div>
+          <div>
+            <label className="text-sm font-medium text-slate-700 mb-1 block flex items-center gap-1">
+              <Key size={14} /> Gemini 模型選擇
+            </label>
+            <select 
+              value={geminiModel} 
+              onChange={e => setGeminiModel(e.target.value)}
+            >
+              <option value="gemini-3-flash-preview">Gemini 3 Flash Preview (最新預覽)</option>
+              <option value="gemini-3-pro-preview">Gemini 3 Pro Preview (最強預覽)</option>
+              <option value="gemini-3-pro-image-preview">Gemini 3 Pro Image (最佳影像處理)</option>
+            </select>
           </div>
           <div>
             <label className="text-sm font-medium text-slate-700 mb-1 block flex items-center gap-1">

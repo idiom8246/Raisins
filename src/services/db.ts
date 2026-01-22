@@ -25,6 +25,15 @@ export class DatabaseService {
     });
   }
 
+  async requestPersistence() {
+    if (navigator.storage && navigator.storage.persist) {
+      const isPersisted = await navigator.storage.persist();
+      console.log(`儲存持久化狀態: ${isPersisted ? '已保護' : '未受保護'}`);
+      return isPersisted;
+    }
+    return false;
+  }
+
   // Trips
   async getAllTrips(): Promise<Trip[]> {
     return (await this.db).getAll('trips');

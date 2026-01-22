@@ -4,8 +4,9 @@ export interface ParsedReceipt {
   shopName: string;
   txDate: string;
   txTime: string;
-  items: { name: string; price: number; qty: number }[];
+  items: { name: string; nameChinese?: string; price: number; qty: number }[];
   totalAmount: number;
+  currency?: string;
 }
 
 export async function processReceipt(imageFile: File | string): Promise<ParsedReceipt> {
@@ -16,6 +17,51 @@ export async function processReceipt(imageFile: File | string): Promise<ParsedRe
 
   console.log('OCR Raw Text:', text);
   return parseOCRText(text);
+}
+
+export async function processReceiptWithGemini(imageFile: File, apiKey: string, model: string = 'gemini-1.5-flash'): Promise<ParsedReceipt> {
+  const base64Image = await new Promise<string>((resolve) => {
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      const base64String = reader.result as string;
+      resolve(base64String.split(',')[1]);
+    };
+    reader.readAsDataURL(imageFile);
+  });
+
+  const prompt = `分析這張收據圖片。請提取以下資訊並以 JSON 格式返回：
+  - 商店名稱 (shopName)
+  - 交易日期 (txDate, 格式 YYYY-MM-DD)
+  - 交易時間 (txTime, 格式 HH:mm)
+  - 幣別 (currency, 如 HKD, JPY, TWD)
+  - 總金額 (totalAmount, 數字)
+  - 項目清單 (items): 每個項目包含名稱 (name, 原始語言)、中文翻譯 (nameChinese)、單價 (price) 和數量 (qty)。
+  
+  請只返回 JSON 代碼塊。`;
+
+  const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      contents: [{
+        parts: [
+          { text: prompt },
+          { inline_data: { mime_type: imageFile.type, data: base64Image } }
+        ]
+      }]
+    })
+  });
+
+  const data = await response.json();
+  const textResponse = data.candidates?.[0]?.content?.parts?.[0]?.text;
+  
+  if (!textResponse) throw new Error('AI 辨識無效');
+
+  // Extract JSON from potential markdown code block
+  const jsonMatch = textResponse.match(/\{[\s\S]*\}/);
+  if (!jsonMatch) throw new Error('AI 返回格式錯誤');
+  
+  return JSON.parse(jsonMatch[0]);
 }
 
 function parseOCRText(text: string): ParsedReceipt {

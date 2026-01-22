@@ -40,5 +40,6 @@ export interface Item {
 export interface Settings {
   homeCurrency: string;
   geminiApiKey?: string;
+  geminiModel?: string;
   exchangeRates: Record<string, number>;
 }

@@ -1,14 +1,18 @@
 import React, { useState } from 'react';
 import { Camera, Barcode, Upload, Edit3, FileText, Loader2 } from 'lucide-react';
-import { processReceipt } from '../services/ocr';
+import { processReceipt, processReceiptWithGemini } from '../services/ocr';
 import { ManualInvoiceForm } from '../components/ManualInvoiceForm';
+import { dbService } from '../services/db';
+import { clsx } from 'clsx';
 
 type RecordMode = 'menu' | 'ocr' | 'barcode' | 'manual_invoice' | 'manual_item' | 'review';
+type OCRMethod = 'tesseract' | 'gemini';
 
 export const RecordView: React.FC = () => {
   const [mode, setMode] = useState<RecordMode>('menu');
   const [isLoading, setIsLoading] = useState(false);
   const [initialData, setInitialData] = useState<any>(null);
+  const [ocrMethod, setOcrMethod] = useState<OCRMethod>('tesseract');
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -16,15 +20,30 @@ export const RecordView: React.FC = () => {
 
     setIsLoading(true);
     try {
-      const parsed = await processReceipt(file);
+      let parsed;
+      if (ocrMethod === 'gemini') {
+        const geminiKey = await dbService.getSetting('geminiApiKey', '');
+        const geminiModel = await dbService.getSetting('geminiModel', 'gemini-1.5-flash');
+        if (!geminiKey) {
+          alert('請先在設定頁面輸入 Gemini API Key 以使用 AI 辨識功能');
+          setIsLoading(false);
+          return;
+        }
+        parsed = await processReceiptWithGemini(file, geminiKey, geminiModel);
+      } else {
+        parsed = await processReceipt(file);
+      }
+      
       setInitialData({
         shopName: parsed.shopName,
         txDate: parsed.txDate,
         txTime: parsed.txTime,
         totalAmount: parsed.totalAmount,
+        currency: parsed.currency || 'HKD',
         items: parsed.items.map(item => ({
           id: crypto.randomUUID(),
           nameOriginal: item.name,
+          nameChinese: item.nameChinese || '',
           price: item.price,
           qty: item.qty,
           type: '食品'
@@ -33,7 +52,7 @@ export const RecordView: React.FC = () => {
       setMode('review');
     } catch (err) {
       console.error('OCR Error:', err);
-      alert('辨識失敗，請嘗試手動輸入');
+      alert('辨識失敗，請嘗試手動輸入或檢查 API Key');
     } finally {
       setIsLoading(false);
     }
@@ -76,6 +95,27 @@ export const RecordView: React.FC = () => {
       <div className="p-4 animate-in fade-in slide-in-from-bottom-4 duration-300">
         <h1 className="text-2xl font-bold mb-6 text-slate-800">新增記錄</h1>
         
+        <div className="mb-6 p-1 bg-slate-100 rounded-xl flex gap-1">
+          <button 
+            onClick={() => setOcrMethod('tesseract')}
+            className={clsx(
+              "flex-1 py-2 px-3 rounded-lg text-sm font-bold transition-all",
+              ocrMethod === 'tesseract' ? "bg-white shadow-sm text-primary-600" : "text-slate-500"
+            )}
+          >
+            標準辨識 (本地)
+          </button>
+          <button 
+            onClick={() => setOcrMethod('gemini')}
+            className={clsx(
+              "flex-1 py-2 px-3 rounded-lg text-sm font-bold transition-all",
+              ocrMethod === 'gemini' ? "bg-white shadow-sm text-primary-600" : "text-slate-500"
+            )}
+          >
+            AI 辨識 (Gemini)
+          </button>
+        </div>
+
         <div className="grid gap-4">
           <label className="card flex items-center gap-4 hover:border-primary-300 transition-colors text-left cursor-pointer group">
             <div className="w-12 h-12 rounded-full bg-primary-100 flex items-center justify-center text-primary-600 group-active:scale-90 transition-transform">

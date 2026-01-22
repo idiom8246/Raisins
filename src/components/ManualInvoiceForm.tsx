@@ -47,7 +47,9 @@ export const ManualInvoiceForm: React.FC<ManualInvoiceFormProps> = ({ initialDat
   const handleTranslate = async (id: string, text: string) => {
     if (!text) return;
     setIsTranslating(id);
-    const result = await translateToChinese(text);
+    const geminiKey = await dbService.getSetting('geminiApiKey', '');
+    const geminiModel = await dbService.getSetting('geminiModel', 'gemini-1.5-flash');
+    const result = await translateToChinese(text, geminiKey, geminiModel);
     if (result.chinese) {
       updateItem(id, 'nameChinese', result.chinese);
     }

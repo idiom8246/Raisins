@@ -3,7 +3,7 @@ export interface TranslationResult {
   source: 'mymemory' | 'gemini' | 'manual';
 }
 
-export async function translateToChinese(text: string, geminiKey?: string): Promise<TranslationResult> {
+export async function translateToChinese(text: string, geminiKey?: string, model: string = 'gemini-1.5-flash'): Promise<TranslationResult> {
   // 1. Try MyMemory API (Free)
   try {
     const res = await fetch(`https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=en|zh-TW`);
@@ -18,7 +18,7 @@ export async function translateToChinese(text: string, geminiKey?: string): Prom
   // 2. Try Gemini API if key is provided
   if (geminiKey) {
     try {
-      const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${geminiKey}`, {
+      const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${geminiKey}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
