@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { dbService } from '../services/db';
-import { Item, Invoice, Trip } from '../types/schema';
 import { ShoppingBag, AlertTriangle, Map, TrendingUp } from 'lucide-react';
 
 export const DashboardView: React.FC = () => {
@@ -11,10 +10,6 @@ export const DashboardView: React.FC = () => {
     tripName: '本地消費',
     homeCurrency: 'HKD'
   });
-
-  useEffect(() => {
-    loadStats();
-  }, []);
 
   const loadStats = async () => {
     const [items, invoices, homeCurrency] = await Promise.all([
@@ -55,6 +50,12 @@ export const DashboardView: React.FC = () => {
       homeCurrency
     });
   };
+
+  useEffect(() => {
+    (async () => {
+      await loadStats();
+    })();
+  }, []);
 
   return (
     <div className="p-4 space-y-6 animate-in fade-in duration-700">

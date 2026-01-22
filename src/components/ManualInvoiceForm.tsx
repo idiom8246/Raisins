@@ -42,7 +42,7 @@ export const ManualInvoiceForm: React.FC<ManualInvoiceFormProps> = ({ initialDat
     setItems(items.filter(item => item.id !== id));
   };
 
-  const updateItem = (id: string, field: keyof Item, value: any) => {
+  const updateItem = (id: string, field: keyof Item, value: string | number) => {
     setItems(items.map(item => item.id === id ? { ...item, [field]: value } : item));
   };
 
@@ -168,7 +168,7 @@ export const ManualInvoiceForm: React.FC<ManualInvoiceFormProps> = ({ initialDat
         </div>
 
         <div className="space-y-4">
-          {items.map((item, index) => (
+          {items.map((item) => (
             <div key={item.id} className="card bg-slate-50/50 space-y-3 relative">
               <button 
                 onClick={() => removeItem(item.id!)}

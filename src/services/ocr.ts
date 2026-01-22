@@ -94,7 +94,7 @@ export async function processReceiptWithGemini(imageFile: File, apiKey: string, 
 function parseOCRText(text: string): ParsedReceipt {
   const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
   
-  let shopName = lines[0] || '未知商店';
+  const shopName = lines[0] || '未知商店';
   let txDate = new Date().toISOString().split('T')[0];
   let txTime = new Date().toTimeString().split(' ')[0].substring(0, 5);
   let totalAmount = 0;

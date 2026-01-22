@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
-import { Camera, Barcode, Upload, Edit3, FileText, Loader2 } from 'lucide-react';
+import { Camera, Barcode, Edit3, FileText, Loader2 } from 'lucide-react';
 import { processReceipt, processReceiptWithGemini } from '../services/ocr';
 import { ManualInvoiceForm } from '../components/ManualInvoiceForm';
 import { dbService } from '../services/db';
 import { clsx } from 'clsx';
+import { Invoice, Item } from '../types/schema';
 
 type RecordMode = 'menu' | 'ocr' | 'barcode' | 'manual_invoice' | 'manual_item' | 'review';
 type OCRMethod = 'tesseract' | 'gemini';
@@ -11,7 +12,7 @@ type OCRMethod = 'tesseract' | 'gemini';
 export const RecordView: React.FC = () => {
   const [mode, setMode] = useState<RecordMode>('menu');
   const [isLoading, setIsLoading] = useState(false);
-  const [initialData, setInitialData] = useState<any>(null);
+  const [initialData, setInitialData] = useState<Partial<Invoice & { items: Partial<Item>[] }> | undefined>(undefined);
   const [ocrMethod, setOcrMethod] = useState<OCRMethod>('tesseract');
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {

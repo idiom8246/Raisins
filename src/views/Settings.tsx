@@ -10,10 +10,6 @@ export const SettingsView: React.FC = () => {
   const [geminiKey, setGeminiKey] = useState('');
   const [geminiModel, setGeminiModel] = useState('gemini-3-flash-preview');
 
-  useEffect(() => {
-    loadSettings();
-  }, []);
-
   const loadSettings = async () => {
     const allTrips = await dbService.getAllTrips();
     const currency = await dbService.getSetting('homeCurrency', 'HKD');
@@ -24,6 +20,12 @@ export const SettingsView: React.FC = () => {
     setGeminiKey(key);
     setGeminiModel(model);
   };
+
+  useEffect(() => {
+    (async () => {
+      await loadSettings();
+    })();
+  }, []);
 
   const handleAddTrip = async () => {
     if (!newTripName) return;
@@ -37,7 +39,7 @@ export const SettingsView: React.FC = () => {
     loadSettings();
   };
 
-  const handleDeleteTrip = async (id: string) => {
+  const handleDeleteTrip = async () => {
     if (window.confirm('確定要刪除此行程嗎？相關收據將變為本地消費。')) {
       // Logic would be to remove tripId from invoices, but for now we just delete trip
       // We need a proper delete in dbService
@@ -81,7 +83,7 @@ export const SettingsView: React.FC = () => {
         for (const item of data.items || []) await dbService.saveItem(item);
         alert('匯入成功！');
         loadSettings();
-      } catch (err) {
+      } catch {
         alert('匯入失敗，格式不正確');
       }
     };
@@ -153,7 +155,7 @@ export const SettingsView: React.FC = () => {
             {trips.map(trip => (
               <div key={trip.id} className="flex items-center justify-between p-2 bg-slate-50 rounded-xl">
                 <span className="font-medium">{trip.name}</span>
-                <button onClick={() => handleDeleteTrip(trip.id)} className="text-slate-400 hover:text-red-500">
+                <button onClick={handleDeleteTrip} className="text-slate-400 hover:text-red-500">
                   <Trash2 size={18} />
                 </button>
               </div>

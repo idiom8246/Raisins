@@ -1,25 +1,19 @@
 import React, { useState, useEffect } from 'react';
-import { Item, Invoice } from '../types/schema';
+import { Item } from '../types/schema';
 import { dbService } from '../services/db';
-import { TrendingDown, TrendingUp, History, Info } from 'lucide-react';
+import { Info } from 'lucide-react';
+import { clsx } from 'clsx';
 
 export const PriceView: React.FC = () => {
   const [groupedItems, setGroupedItems] = useState<Record<string, Item[]>>({});
   const [loading, setLoading] = useState(true);
-  const [homeCurrency, setHomeCurrency] = useState('HKD');
-
-  useEffect(() => {
-    loadData();
-  }, []);
 
   const loadData = async () => {
     setLoading(true);
-    const [items, currency] = await Promise.all([
+    const [items] = await Promise.all([
       dbService.getAllItems(),
       dbService.getSetting('homeCurrency', 'HKD')
     ]);
-    
-    setHomeCurrency(currency);
 
     // Group items by Original Name or Barcode
     const groups: Record<string, Item[]> = {};
@@ -32,6 +26,12 @@ export const PriceView: React.FC = () => {
     setGroupedItems(groups);
     setLoading(false);
   };
+
+  useEffect(() => {
+    (async () => {
+      await loadData();
+    })();
+  }, []);
 
   if (loading) return <div className="p-10 text-center text-slate-400">分析中...</div>;
 
@@ -93,7 +93,3 @@ export const PriceView: React.FC = () => {
     </div>
   );
 };
-
-function clsx(...args: any[]) {
-  return args.filter(Boolean).join(' ');
-}

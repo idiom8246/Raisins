@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Search, Filter, Calendar, MapPin, Tag, ChevronRight, Trash2 } from 'lucide-react';
+import { Search, Calendar, MapPin, Tag, Trash2 } from 'lucide-react';
 import { Item, Trip, Invoice, ItemStatus } from '../types/schema';
 import { dbService } from '../services/db';
 import { clsx } from 'clsx';
@@ -14,10 +14,6 @@ export const InventoryView: React.FC = () => {
   const [selectedTrip, setSelectedTrip] = useState('');
   const [selectedType, setSelectedType] = useState('');
   const [selectedStatus, setSelectedStatus] = useState<ItemStatus | ''>('');
-
-  useEffect(() => {
-    loadData();
-  }, []);
 
   const loadData = async () => {
     setLoading(true);
@@ -37,6 +33,12 @@ export const InventoryView: React.FC = () => {
     setTrips(allTrips);
     setLoading(false);
   };
+
+  useEffect(() => {
+    (async () => {
+      await loadData();
+    })();
+  }, []);
 
   const filteredItems = items.filter(item => {
     const matchesSearch = 

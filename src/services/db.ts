@@ -1,5 +1,5 @@
 import { openDB, IDBPDatabase } from 'idb';
-import { Trip, Invoice, Item, Settings } from '../types/schema';
+import { Trip, Invoice, Item } from '../types/schema';
 
 const DB_NAME = 'inventory_tracker_db';
 const DB_VERSION = 1;
@@ -72,7 +72,7 @@ export class DatabaseService {
     const res = await (await this.db).get('settings', key);
     return res ? res.value : defaultValue;
   }
-  async setSetting(key: string, value: any) {
+  async setSetting(key: string, value: string | number | boolean | Record<string, number>) {
     return (await this.db).put('settings', { key, value });
   }
 }
