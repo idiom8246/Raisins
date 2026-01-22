@@ -1,0 +1,1 @@
+{"name":"智能庫存與價格追蹤器","short_name":"庫存追蹤","description":"追蹤庫存與價格的智能旅行助手","start_url":"/Raisins/","display":"standalone","background_color":"#ffffff","theme_color":"#0ea5e9","lang":"en","scope":"/Raisins/","icons":[{"src":"pwa-192x192.png","sizes":"192x192","type":"image/png"},{"src":"pwa-512x512.png","sizes":"512x512","type":"image/png"}]}
