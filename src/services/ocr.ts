@@ -20,13 +20,196 @@ export interface ParsedReceipt {
 }
 
 export async function processReceipt(imageFile: File | string): Promise<ParsedReceipt> {
-  const worker = await createWorker('eng+chi_tra');
+  // Add preprocessing for better local OCR results
+  const processedImage = await preprocessImage(imageFile);
+  const worker = await createWorker('eng+chi_tra+kor');
   
-  const { data: { text } } = await worker.recognize(imageFile);
+  const { data: { text } } = await worker.recognize(processedImage);
   await worker.terminate();
 
   console.log('OCR Raw Text:', text);
   return parseOCRText(text);
+}
+
+async function preprocessImage(imageFile: File | string): Promise<string> {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      if (!ctx) {
+        resolve(typeof imageFile === 'string' ? imageFile : URL.createObjectURL(imageFile));
+        return;
+      }
+
+      canvas.width = img.width;
+      canvas.height = img.height;
+
+      // 1. Draw image
+      ctx.drawImage(img, 0, 0);
+
+      // 2. Grayscale and Contrast enhancement
+      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      const data = imageData.data;
+      
+      // Simple contrast factor
+      const contrast = 1.2; 
+      const intercept = 128 * (1 - contrast);
+
+      for (let i = 0; i < data.length; i += 4) {
+        // Grayscale using luminance formula
+        const avg = 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2];
+        
+        // Boost contrast
+        const v = avg * contrast + intercept;
+        
+        data[i] = v;     // R
+        data[i + 1] = v; // G
+        data[i + 2] = v; // B
+      }
+      
+      ctx.putImageData(imageData, 0, 0);
+      resolve(canvas.toDataURL('image/jpeg', 0.9));
+    };
+
+    if (typeof imageFile === 'string') {
+      img.src = imageFile;
+    } else {
+      img.src = URL.createObjectURL(imageFile);
+    }
+  });
+}
+
+function parseOCRText(text: string): ParsedReceipt {
+  const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+  const totalKeywords = ['總額', '總數', '合計', '合 計', '합계', '합 계', 'TOTAL', 'TOTAL AMOUNT', '實際應付金額', '結算金額', '받을금액', '결제금액'];
+  
+  const result: ParsedReceipt = {
+    shopName: '未知商店',
+    txDate: new Date().toISOString().split('T')[0],
+    txTime: new Date().toTimeString().split(' ')[0].substring(0, 5),
+    items: [],
+    totalAmount: 0,
+    currency: 'HKD' // Default
+  };
+
+  // 1. Metadata Extraction
+  
+  // Date Patterns: YYYY-MM-DD, YYYY/MM/DD, DD/MM/YYYY
+  const datePattern = /(\d{4}[-/]\d{1,2}[-/]\d{1,2})|(\d{1,2}[-/]\d{1,2}[-/]\d{4})/;
+  const dateMatch = text.match(datePattern);
+  if (dateMatch) {
+    let rawDate = dateMatch[0].replace(/\//g, '-');
+    // If it's DD-MM-YYYY, convert to YYYY-MM-DD
+    if (rawDate.match(/^\d{1,2}-/)) {
+      const parts = rawDate.split('-');
+      if (parts.length === 3) {
+        rawDate = `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
+      }
+    }
+    result.txDate = rawDate;
+  }
+
+  // Time Patterns: HH:mm:ss, HH:mm
+  const timePattern = /([01]?[0-9]|2[0-3]):[0-5][0-9](:[0-5][0-9])?/;
+  const timeMatch = text.match(timePattern);
+  if (timeMatch) result.txTime = timeMatch[0].substring(0, 5);
+
+  // Phone Patterns
+  const telPattern = /(Tel|電話|TEL)[:\s]*([\d\-)( \s]{8,15})|(\d{2,3}-\d{3,4}-\d{4})/;
+  const telMatch = text.match(telPattern);
+  if (telMatch) result.tel = (telMatch[2] || telMatch[0]).trim();
+
+  // Currency Detection
+  if (text.includes('KRW') || text.includes('원') || text.includes('브랜드')) result.currency = 'KRW';
+  else if (text.includes('JPY') || text.includes('円')) result.currency = 'JPY';
+  else if (text.includes('TWD') || text.includes('NT$')) result.currency = 'TWD';
+  else if (text.includes('HKD') || text.includes('$') || text.includes('759') || text.includes('惠康')) result.currency = 'HKD';
+
+  // 2. Shop Name Heuristic (Usually first few lines)
+  const likelyShopLines = lines.slice(0, 5);
+  for (const line of likelyShopLines) {
+    if (line.length > 2 && !line.match(/\d{4}/) && !line.includes(':') && !line.includes('收據')) {
+      result.shopName = line;
+      break;
+    }
+  }
+
+  // 3. Item & Total Extraction
+  lines.forEach((line, index) => {
+    // Total Amount Keywords
+    if (totalKeywords.some(kw => line.toUpperCase().includes(kw))) {
+      const amountMatch = line.match(/([\d,]+\.?\d*)$/);
+      if (amountMatch) {
+        result.totalAmount = parseFloat(amountMatch[1].replace(/,/g, ''));
+      } else {
+        // Try next line for amount
+        const nextLine = lines[index+1];
+        if (nextLine) {
+          const nextMatch = nextLine.match(/([\d,]+\.?\d*)$/);
+          if (nextMatch) result.totalAmount = parseFloat(nextMatch[1].replace(/,/g, ''));
+        }
+      }
+    }
+
+    // Discount Pattern
+    const discountMatch = line.match(/(-[\d,]+\.?\d*)$/) || line.match(/(折扣|優惠|Disc).*?(-?[\d,]+\.?\d*)$/);
+    if (discountMatch && result.items.length > 0) {
+      const discVal = Math.abs(parseFloat(discountMatch[discountMatch.length - 1].replace(/,/g, '')));
+      result.items[result.items.length - 1].discount = discVal;
+      return;
+    }
+
+    // Line Item Detection Heuristics
+    // Pattern A: [Name] ... [Price] [Qty] [Total]
+    const patternA = /^(.*?)\s+([\d,]+\.?\d*)\s+(\d+)\s+([\d,]+\.?\d*)$/;
+    const matchA = line.match(patternA);
+    if (matchA) {
+      result.items.push({
+        name: matchA[1].trim(),
+        price: parseFloat(matchA[2].replace(/,/g, '')),
+        qty: parseInt(matchA[3]),
+        type: '其他'
+      });
+      return;
+    }
+
+    // Pattern B: Multiplier line (e.g. "X 2$ 45.8" or "1 @ 13.90")
+    const multiplierPattern = /([X@])\s*(\d+)?\s*\$?([\d,]+\.?\d*)\s*\$?([\d,]+\.?\d*)$/;
+    const matchMult = line.match(multiplierPattern);
+    if (matchMult && index > 0) {
+      const name = lines[index-1];
+      const qty = parseInt(matchMult[2] || '1');
+      const price = parseFloat(matchMult[3].replace(/,/g, ''));
+      result.items.push({
+        name,
+        price,
+        qty,
+        type: '其他'
+      });
+      return;
+    }
+  });
+
+  // Post-process items: if no items found, try simpler regex for any line with price
+  if (result.items.length === 0) {
+    lines.forEach(line => {
+      const simplePriceMatch = line.match(/^(.*?)\s+([\d,]+\.\d{2})$/) || line.match(/^(.*?)\s+([\d,]{4,10})$/);
+      if (simplePriceMatch) {
+        const name = simplePriceMatch[1].trim();
+        if (name.length > 2 && !totalKeywords.some(kw => name.toUpperCase().includes(kw))) {
+          result.items.push({
+            name,
+            price: parseFloat(simplePriceMatch[2].replace(/,/g, '')),
+            qty: 1,
+            type: '其他'
+          });
+        }
+      }
+    });
+  }
+
+  return result;
 }
 
 export async function processReceiptWithGemini(imageFile: File, apiKey: string, model: string = 'gemini-1.5-flash'): Promise<ParsedReceipt> {
@@ -89,40 +272,4 @@ export async function processReceiptWithGemini(imageFile: File, apiKey: string, 
   if (!jsonMatch) throw new Error('AI 返回格式錯誤');
   
   return JSON.parse(jsonMatch[0]);
-}
-
-function parseOCRText(text: string): ParsedReceipt {
-  const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
-  
-  const shopName = lines[0] || '未知商店';
-  let txDate = new Date().toISOString().split('T')[0];
-  let txTime = new Date().toTimeString().split(' ')[0].substring(0, 5);
-  let totalAmount = 0;
-  const items: { name: string; price: number; qty: number }[] = [];
-
-  // Simple RegEx for Date (YYYY-MM-DD or DD/MM/YYYY)
-  const dateMatch = text.match(/(\d{4}[-/]\d{1,2}[-/]\d{1,2})|(\d{1,2}[-/]\d{1,2}[-/]\d{4})/);
-  if (dateMatch) txDate = dateMatch[0].replace(/\//g, '-');
-
-  // Simple RegEx for Time (HH:mm)
-  const timeMatch = text.match(/([01]?[0-9]|2[0-3]):[0-5][0-9]/);
-  if (timeMatch) txTime = timeMatch[0];
-
-  // Logic to find items: Lines that look like "Name ... Price"
-  // This is highly variable, so we use a simple heuristic
-  lines.forEach(line => {
-    const priceMatch = line.match(/(\d+\.\d{2})$/);
-    if (priceMatch) {
-      const price = parseFloat(priceMatch[1]);
-      const name = line.replace(priceMatch[0], '').trim();
-      
-      if (name.toLowerCase().includes('total')) {
-        totalAmount = price;
-      } else if (name.length > 2) {
-        items.push({ name, price, qty: 1 });
-      }
-    }
-  });
-
-  return { shopName, txDate, txTime, items, totalAmount };
 }
