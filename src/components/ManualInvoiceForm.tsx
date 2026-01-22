@@ -15,6 +15,8 @@ export const ManualInvoiceForm: React.FC<ManualInvoiceFormProps> = ({ initialDat
   const [invoice, setInvoice] = useState({
     tripId: initialData?.tripId || '',
     shopName: initialData?.shopName || '',
+    shopAddress: initialData?.shopAddress || '',
+    tel: initialData?.tel || '',
     country: initialData?.country || '',
     currency: initialData?.currency || 'HKD',
     txDate: initialData?.txDate || new Date().toISOString().split('T')[0],
@@ -23,7 +25,7 @@ export const ManualInvoiceForm: React.FC<ManualInvoiceFormProps> = ({ initialDat
   });
 
   const [items, setItems] = useState<Partial<Item>[]>(
-    initialData?.items || [{ id: crypto.randomUUID(), nameOriginal: '', nameChinese: '', type: '食品', qty: 1, price: 0, currency: 'HKD' }]
+    initialData?.items || [{ id: crypto.randomUUID(), nameOriginal: '', nameChinese: '', type: '食品', qty: 1, price: 0, discount: 0, currency: 'HKD' }]
   );
 
   const [isTranslating, setIsTranslating] = useState<string | null>(null);
@@ -33,7 +35,7 @@ export const ManualInvoiceForm: React.FC<ManualInvoiceFormProps> = ({ initialDat
   }, []);
 
   const addItem = () => {
-    setItems([...items, { id: crypto.randomUUID(), nameOriginal: '', nameChinese: '', type: '食品', qty: 1, price: 0, currency: invoice.currency }]);
+    setItems([...items, { id: crypto.randomUUID(), nameOriginal: '', nameChinese: '', type: '食品', qty: 1, price: 0, discount: 0, currency: invoice.currency }]);
   };
 
   const removeItem = (id: string) => {
@@ -61,7 +63,7 @@ export const ManualInvoiceForm: React.FC<ManualInvoiceFormProps> = ({ initialDat
     const newInvoice: Invoice = {
       ...invoice,
       id: invoiceId,
-      totalAmount: items.reduce((sum, item) => sum + (Number(item.price) || 0) * (Number(item.qty) || 1), 0)
+      totalAmount: items.reduce((sum, item) => sum + ((Number(item.price) || 0) * (Number(item.qty) || 1)) - (Number(item.discount) || 0), 0)
     };
 
     await dbService.saveInvoice(newInvoice);
@@ -72,7 +74,8 @@ export const ManualInvoiceForm: React.FC<ManualInvoiceFormProps> = ({ initialDat
         id: item.id || crypto.randomUUID(),
         invoiceId,
         currency: item.currency || invoice.currency,
-        status: '未開封'
+        status: '未開封',
+        discount: Number(item.discount) || 0
       });
     }
 
@@ -101,6 +104,23 @@ export const ManualInvoiceForm: React.FC<ManualInvoiceFormProps> = ({ initialDat
               value={invoice.shopName} 
               onChange={e => setInvoice({...invoice, shopName: e.target.value})}
               placeholder="例如：驚安之殿堂"
+            />
+          </div>
+          <div className="col-span-2">
+            <label className="text-xs font-bold text-slate-500 mb-1 block">商店地址</label>
+            <input 
+              type="text" 
+              value={invoice.shopAddress} 
+              onChange={e => setInvoice({...invoice, shopAddress: e.target.value})}
+              placeholder="例如：東京都新宿區..."
+            />
+          </div>
+          <div className="col-span-2">
+            <label className="text-xs font-bold text-slate-500 mb-1 block">電話</label>
+            <input 
+              type="text" 
+              value={invoice.tel} 
+              onChange={e => setInvoice({...invoice, tel: e.target.value})}
             />
           </div>
           <div>
@@ -185,7 +205,7 @@ export const ManualInvoiceForm: React.FC<ManualInvoiceFormProps> = ({ initialDat
                     placeholder="翻譯或手動輸入"
                   />
                 </div>
-                <div className="col-span-6">
+                <div className="col-span-4">
                   <label className="text-[10px] font-bold text-slate-400 uppercase">類別</label>
                   <select 
                     value={item.type} 
@@ -200,7 +220,7 @@ export const ManualInvoiceForm: React.FC<ManualInvoiceFormProps> = ({ initialDat
                     <option value="其他">其他</option>
                   </select>
                 </div>
-                <div className="col-span-3">
+                <div className="col-span-2">
                   <label className="text-[10px] font-bold text-slate-400 uppercase">數量</label>
                   <input 
                     type="number" 
@@ -214,6 +234,14 @@ export const ManualInvoiceForm: React.FC<ManualInvoiceFormProps> = ({ initialDat
                     type="number" 
                     value={item.price} 
                     onChange={e => updateItem(item.id!, 'price', Number(e.target.value))}
+                  />
+                </div>
+                <div className="col-span-3">
+                  <label className="text-[10px] font-bold text-slate-400 uppercase">折扣</label>
+                  <input 
+                    type="number" 
+                    value={item.discount} 
+                    onChange={e => updateItem(item.id!, 'discount', Number(e.target.value))}
                   />
                 </div>
               </div>

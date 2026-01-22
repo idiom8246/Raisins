@@ -36,6 +36,9 @@ export const RecordView: React.FC = () => {
       
       setInitialData({
         shopName: parsed.shopName,
+        shopAddress: parsed.shopAddress,
+        country: parsed.country,
+        tel: parsed.tel,
         txDate: parsed.txDate,
         txTime: parsed.txTime,
         totalAmount: parsed.totalAmount,
@@ -46,7 +49,8 @@ export const RecordView: React.FC = () => {
           nameChinese: item.nameChinese || '',
           price: item.price,
           qty: item.qty,
-          type: '食品'
+          type: item.type || '食品',
+          discount: item.discount || 0
         }))
       });
       setMode('review');

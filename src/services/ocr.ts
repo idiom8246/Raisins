@@ -2,9 +2,19 @@ import { createWorker } from 'tesseract.js';
 
 export interface ParsedReceipt {
   shopName: string;
+  shopAddress?: string;
+  country?: string;
+  tel?: string;
   txDate: string;
   txTime: string;
-  items: { name: string; nameChinese?: string; price: number; qty: number }[];
+  items: { 
+    name: string; 
+    nameChinese?: string; 
+    price: number; 
+    qty: number; 
+    type?: string;
+    discount?: number;
+  }[];
   totalAmount: number;
   currency?: string;
 }
@@ -29,15 +39,32 @@ export async function processReceiptWithGemini(imageFile: File, apiKey: string, 
     reader.readAsDataURL(imageFile);
   });
 
-  const prompt = `分析這張收據圖片。請提取以下資訊並以 JSON 格式返回：
-  - 商店名稱 (shopName)
-  - 交易日期 (txDate, 格式 YYYY-MM-DD)
-  - 交易時間 (txTime, 格式 HH:mm)
-  - 幣別 (currency, 如 HKD, JPY, TWD)
-  - 總金額 (totalAmount, 數字)
-  - 項目清單 (items): 每個項目包含名稱 (name, 原始語言)、中文翻譯 (nameChinese)、單價 (price) 和數量 (qty)。
+  const prompt = `你是一個專業的收據識別助手。請分析這張圖片，並提取以下詳細資訊，以 JSON 格式返回：
+
+  1. 商店資訊：
+     - shopName: 商店名稱
+     - shopAddress: 商店地址 (如有)
+     - country: 國家/地區 (如 Japan, Taiwan, Hong Kong)
+     - tel: 電話號碼 (如有)
   
-  請只返回 JSON 代碼塊。`;
+  2. 交易資訊：
+     - txDate: 交易日期 (格式 YYYY-MM-DD)
+     - txTime: 交易時間 (格式 HH:mm)
+     - currency: 貨幣代碼 (如 JPY, TWD, HKD, USD)
+     - totalAmount: 總金額 (純數字)
+  
+  3. 商品清單 (items 陣列)，每項包含：
+     - name: 原始品名 (保留原文)
+     - nameChinese: 中文翻譯品名 (繁體中文)
+     - price: 單價 (純數字)
+     - qty: 數量 (純數字，預設 1)
+     - discount: 此項目的折扣金額 (如有，正數表示扣減金額，無則為 0)
+     - type: 商品類別 (從以下選擇：食品, 藥品, 生活用品, 化妝品, 衣物, 電子產品, 其他)
+
+  請注意：
+  - 如果無法識別某些欄位，請省略或設為 null。
+  - 確保 JSON 格式正確且無 Markdown 標記。
+  - 若有折扣，請確保 totalAmount 是折扣後的最終金額。`;
 
   const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`, {
     method: 'POST',

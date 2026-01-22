@@ -19,6 +19,7 @@ export interface Invoice {
   txDate: string;
   txTime: string;
   totalAmount: number;
+  totalAmountHomeCurrency?: number;
 }
 
 export interface Item {
@@ -30,6 +31,7 @@ export interface Item {
   type: string;
   qty: number;
   price: number;
+  priceHomeCurrency?: number;
   currency: string;
   discount: number;
   expiryDate?: string;
